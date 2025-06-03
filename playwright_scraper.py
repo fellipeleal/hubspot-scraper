@@ -40,7 +40,7 @@ Objetivo: mostrar como profissionais de marketing podem aplicar esse conceito na
 Use um tom claro, sem jargão técnico, com até 2 emojis. Finalize com uma pergunta ou CTA para engajar a audiência.
 
 Fonte: {link}"""
-            sheet.append_row([data, titulo, link, "", prompt])
+            sheet.append_row([data, titulo, link, resumo, prompt])
             adicionados += 1
 
     browser.close()
