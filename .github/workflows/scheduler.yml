@@ -21,8 +21,8 @@ jobs:
     - name: Instalar dependências
       run: pip install -r requirements.txt
 
-    - name: Criar credenciais.json a partir do secret
-      run: echo "${{ secrets.GSHEETS_KEY }}" > credenciais.json
+    - name: Criar credenciais.json a partir do secret codificado
+      run: echo "${{ secrets.GSHEETS_KEY_B64 }}" | base64 -d > credenciais.json
 
     - name: Executar o scraper
       run: python scraper.py
