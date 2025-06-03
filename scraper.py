@@ -16,7 +16,7 @@ client = gspread.authorize(creds)
 sheet = client.open("HubspotIA").sheet1
 
 # Scraping do blog da HubSpot
-url = "https://blog.hubspot.com/marketing"
+url = "https://br.hubspot.com/blog"
 resposta = requests.get(url)
 soup = BeautifulSoup(resposta.text, "html.parser")
 cards = soup.select("div.blog-card")
@@ -30,7 +30,7 @@ for card in cards:
 
     titulo = titulo_tag.text.strip()
     print("🔎 Título encontrado:", titulo)
-    link = "https://blog.hubspot.com" + titulo_tag['href']
+    link = "https://br.hubspot.com/blog" + titulo_tag['href']
 
     if re.search(r"\b(IA|inteligência artificial|AI)\b", titulo, re.IGNORECASE):
         desc_tag = card.select_one("p.blog-card__description")
