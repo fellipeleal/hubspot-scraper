@@ -1,11 +1,10 @@
-import requests
-from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright
 import re
 from datetime import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-import os
-import json# Autenticar com Google Sheets
+
+# Autenticar com Google Sheets
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds = ServiceAccountCredentials.from_json_keyfile_name("credenciais.json", scope)
 client = gspread.authorize(creds)
