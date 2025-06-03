@@ -34,22 +34,26 @@ for i, row in enumerate(dados, start=2):  # começa na linha 2
         print(f"💬 Gerando post para linha {i}...")
 
         try:
+            mensagem_usuario = dedent(f"""
+                Crie um post de LinkedIn com base neste resumo de notícia:
+
+                """{resumo}"""
+
+               Crie um post para LinkedIn com tom provocador e autoridade técnica sobre o tema.
+               O texto deve:
+               – Começar com uma frase que aponte um erro comum no mercado
+               – Mostrar o contraste entre a prática superficial e a prática correta
+               – Incluir um exemplo real (ou simulado) que mostre como isso se aplica na prática
+               – Terminar com uma provocação aberta, convidando ao debate
+               O post deve ser direto, com frases curtas, e ter o tom de alguém que já viveu isso na pele — não de quem está repetindo buzzwords.
+               Use no máximo 1.300 caracteres e inclua hashtags específicas no final.
+            """)
+
             response = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system", "content": "Você é um redator de marketing digital."},
-                    {
-                        "role": "user",
-                        "content": dedent(f"""                            Crie um post de LinkedIn com base neste resumo de notícia:
-
-                            """{resumo}"""
-
-                            O post deve:
-                            - Ser claro e aplicável a profissionais de marketing
-                            - Usar até 2 emojis
-                            - Terminar com uma pergunta ou CTA
-                        """)
-                    }
+                    {"role": "user", "content": mensagem_usuario}
                 ],
                 temperature=0.7,
                 max_tokens=300
