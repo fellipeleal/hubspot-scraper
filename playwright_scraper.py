@@ -32,6 +32,10 @@ with sync_playwright() as p:
             link_tag = article.query_selector("a")
             link = link_tag.get_attribute("href") if link_tag else ""
             link = link if link.startswith("http") else "https://br.hubspot.com/blog" + link
+
+            desc_tag = article.query_selector("p")
+            resumo = desc_tag.inner_text().strip() if desc_tag else ""
+
             data = datetime.now().strftime("%Y-%m-%d")
             prompt = f"""Crie um post de LinkedIn com base nesse artigo da HubSpot: "{titulo}".
 
@@ -40,7 +44,8 @@ Objetivo: mostrar como profissionais de marketing podem aplicar esse conceito na
 Use um tom claro, sem jargão técnico, com até 2 emojis. Finalize com uma pergunta ou CTA para engajar a audiência.
 
 Fonte: {link}"""
-            sheet.append_row([data, titulo, link, resumo, prompt])
+
+            sheet.append_row([data, titulo, link, resumo, ""])
             adicionados += 1
 
     browser.close()
