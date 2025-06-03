@@ -28,3 +28,6 @@ jobs:
 
     - name: Executar o scraper com Playwright
       run: python playwright_scraper.py
+
+      env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
