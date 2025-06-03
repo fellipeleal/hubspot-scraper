@@ -17,7 +17,7 @@ adicionados = 0
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     page = browser.new_page()
-    page.goto("https://blog.hubspot.com/")
+    page.goto("https://br.hubspot.com/blog")
     page.wait_for_selector("article")
 
     articles = page.query_selector_all("article")
@@ -31,7 +31,7 @@ with sync_playwright() as p:
         if re.search(r"\b(IA|inteligência artificial|AI|machine learning|LLM)\b", titulo, re.IGNORECASE):
             link_tag = article.query_selector("a")
             link = link_tag.get_attribute("href") if link_tag else ""
-            link = link if link.startswith("http") else "https://blog.hubspot.com" + link
+            link = link if link.startswith("http") else "https://br.hubspot.com/blog" + link
             data = datetime.now().strftime("%Y-%m-%d")
             prompt = f"""Crie um post de LinkedIn com base nesse artigo da HubSpot: "{titulo}".
 
