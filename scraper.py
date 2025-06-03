@@ -29,6 +29,7 @@ for card in cards:
         continue
 
     titulo = titulo_tag.text.strip()
+    print("🔎 Título encontrado:", titulo)
     link = "https://blog.hubspot.com" + titulo_tag['href']
 
     if re.search(r"\b(IA|inteligência artificial|AI)\b", titulo, re.IGNORECASE):
