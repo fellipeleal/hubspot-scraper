@@ -2,6 +2,7 @@ import openai
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import os
+from textwrap import dedent
 
 # Autenticar com Google Sheets
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -37,15 +38,18 @@ for i, row in enumerate(dados, start=2):  # começa na linha 2
                 model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system", "content": "Você é um redator de marketing digital."},
-                    {"role": "user", "content": f"""Crie um post de LinkedIn com base neste resumo de notícia:
+                    {
+                        "role": "user",
+                        "content": dedent(f"""                            Crie um post de LinkedIn com base neste resumo de notícia:
 
-"""{resumo}"""
+                            """{resumo}"""
 
-O post deve:
-- Ser claro e aplicável a profissionais de marketing
-- Usar até 2 emojis
-- Terminar com uma pergunta ou CTA
-"""}
+                            O post deve:
+                            - Ser claro e aplicável a profissionais de marketing
+                            - Usar até 2 emojis
+                            - Terminar com uma pergunta ou CTA
+                        """)
+                    }
                 ],
                 temperature=0.7,
                 max_tokens=300
