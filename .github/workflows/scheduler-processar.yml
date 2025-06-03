@@ -1,12 +1,14 @@
 name: Processar Prompts com OpenAI
 
 on:
-  schedule:
-    - cron: '0 12 * * *'
-  workflow_dispatch:
+  workflow_run:
+    workflows: ["Scrape HubSpot Blog (Playwright)"]
+    types:
+      - completed
 
 jobs:
   gerar-prompts:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     steps:
