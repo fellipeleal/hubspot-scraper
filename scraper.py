@@ -5,9 +5,7 @@ from datetime import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import os
-import json
-
-# Autenticar com Google Sheets
+import json# Autenticar com Google Sheets
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds = ServiceAccountCredentials.from_json_keyfile_name("credenciais.json", scope)
 client = gspread.authorize(creds)
@@ -15,37 +13,37 @@ client = gspread.authorize(creds)
 # Acessar planilha
 sheet = client.open("HubspotIA").sheet1
 
-# Scraping do blog da HubSpot
-url = "https://br.hubspot.com/blog"
-resposta = requests.get(url)
-soup = BeautifulSoup(resposta.text, "html.parser")
-cards = soup.select("div.blog-card")
-
 adicionados = 0
 
-for card in cards:
-    titulo_tag = card.select_one("a.blog-card__title")
-    if not titulo_tag:
-        continue
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True)
+    page = browser.new_page()
+    page.goto("https://blog.hubspot.com/")
+    page.wait_for_selector("article")
 
-    titulo = titulo_tag.text.strip()
-    print("🔎 Título encontrado:", titulo)
-    link = "https://br.hubspot.com/blog" + titulo_tag['href']
+    articles = page.query_selector_all("article")
+    for article in articles:
+        title_tag = article.query_selector("h3")
+        if not title_tag:
+            continue
+        titulo = title_tag.inner_text().strip()
+        print("🔎 Título encontrado:", titulo)
 
-    if re.search(r"\b(IA|inteligência artificial|AI)\b", titulo, re.IGNORECASE):
-        desc_tag = card.select_one("p.blog-card__description")
-        resumo = desc_tag.text.strip() if desc_tag else ""
-        data = datetime.now().strftime("%Y-%m-%d")
-
-        prompt = f"""Crie um post de LinkedIn com base nesse artigo da HubSpot: "{titulo}".
+        if re.search(r"\b(IA|inteligência artificial|AI|machine learning|LLM)\b", titulo, re.IGNORECASE):
+            link_tag = article.query_selector("a")
+            link = link_tag.get_attribute("href") if link_tag else ""
+            link = link if link.startswith("http") else "https://blog.hubspot.com" + link
+            data = datetime.now().strftime("%Y-%m-%d")
+            prompt = f"""Crie um post de LinkedIn com base nesse artigo da HubSpot: "{titulo}".
 
 Objetivo: mostrar como profissionais de marketing podem aplicar esse conceito na prática.
 
 Use um tom claro, sem jargão técnico, com até 2 emojis. Finalize com uma pergunta ou CTA para engajar a audiência.
 
 Fonte: {link}"""
+            sheet.append_row([data, titulo, link, "", prompt])
+            adicionados += 1
 
-        sheet.append_row([data, titulo, link, resumo, prompt])
-        adicionados += 1
+    browser.close()
 
 print(f"✅ {adicionados} post(s) adicionados à planilha.")
