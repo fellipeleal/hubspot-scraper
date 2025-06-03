@@ -2,7 +2,7 @@ name: Scrape HubSpot Blog
 
 on:
   schedule:
-    - cron: '0 10 * * *'  # Roda todo dia às 10h UTC (7h Brasília)
+    - cron: '0 10 * * *'  # roda às 7h de Brasília (10h UTC)
   workflow_dispatch:
 
 jobs:
