@@ -1,0 +1,28 @@
+name: Scrape HubSpot Blog
+
+on:
+  schedule:
+    - cron: '0 10 * * *'  # Roda todo dia às 10h UTC (7h Brasília)
+  workflow_dispatch:
+
+jobs:
+  run-scraper:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout do repositório
+      uses: actions/checkout@v3
+
+    - name: Configurar Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Instalar dependências
+      run: pip install -r requirements.txt
+
+    - name: Criar credenciais.json a partir do secret
+      run: echo "${{ secrets.GSHEETS_KEY }}" > credenciais.json
+
+    - name: Executar o scraper
+      run: python scraper.py
