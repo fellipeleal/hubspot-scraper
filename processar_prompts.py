@@ -2,7 +2,6 @@ import openai
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import os
-from textwrap import dedent
 
 # Autenticar com Google Sheets
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -34,29 +33,30 @@ for i, row in enumerate(dados, start=2):  # começa na linha 2
         print(f"💬 Gerando post para linha {i}...")
 
         try:
-            mensagem_usuario = dedent(f"""
-                Crie um post de LinkedIn com base neste resumo de notícia:
-
-                """{resumo}"""
-
-               Crie um post para LinkedIn com tom provocador e autoridade técnica sobre o tema.
-               O texto deve:
-               – Começar com uma frase que aponte um erro comum no mercado
-               – Mostrar o contraste entre a prática superficial e a prática correta
-               – Incluir um exemplo real (ou simulado) que mostre como isso se aplica na prática
-               – Terminar com uma provocação aberta, convidando ao debate
-               O post deve ser direto, com frases curtas, e ter o tom de alguém que já viveu isso na pele — não de quem está repetindo buzzwords.
-               Use no máximo 1.300 caracteres e inclua hashtags específicas no final.
-            """)
+            mensagem_usuario = "\n".join([
+                "Crie um post para LinkedIn com tom provocador e autoridade técnica sobre o tema.",
+                "",
+                "Resumo do artigo:",
+                f'"{resumo}"',
+                "",
+                "O texto deve:",
+                "– Começar com uma frase que aponte um erro comum no mercado",
+                "– Mostrar o contraste entre a prática superficial e a prática correta",
+                "– Incluir um exemplo real (ou simulado) que mostre como isso se aplica na prática",
+                "– Terminar com uma provocação aberta, convidando ao debate",
+                "",
+                "O post deve ser direto, com frases curtas, e ter o tom de alguém que já viveu isso na pele — não de quem está repetindo buzzwords.",
+                "Use no máximo 1.300 caracteres e inclua hashtags específicas no final."
+            ])
 
             response = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo",
                 messages=[
-                    {"role": "system", "content": "Você é um redator de marketing digital."},
+                    {"role": "system", "content": "Você é um estrategista de marketing experiente e direto."},
                     {"role": "user", "content": mensagem_usuario}
                 ],
                 temperature=0.7,
-                max_tokens=300
+                max_tokens=500
             )
 
             texto = response["choices"][0]["message"]["content"].strip()
