@@ -7,9 +7,17 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
 # Criar credenciais.json a partir do secret
-if not os.path.exists("credenciais.json"):
-    with open("credenciais.json", "w") as f:
-        f.write(os.getenv("GOOGLE_CREDENTIALS"))
+credentials_json = os.getenv("GOOGLE_CREDENTIALS")
+if not credentials_json:
+    raise ValueError("❌ GOOGLE_CREDENTIALS não está definido ou está vazio. Verifique seus GitHub Secrets.")
+
+try:
+    json.loads(credentials_json)
+except json.JSONDecodeError:
+    raise ValueError("❌ O conteúdo de GOOGLE_CREDENTIALS não é um JSON válido.")
+
+with open("credenciais.json", "w") as f:
+    f.write(credentials_json)
 
 # Autenticar com Google Sheets
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
