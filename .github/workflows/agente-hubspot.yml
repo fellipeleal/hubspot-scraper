@@ -26,10 +26,10 @@ jobs:
       - name: 🤖 Rodar scraping do blog da HubSpot
         run: python playwright_scraper.py
         env:
-          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          GSHEETS_KEY_B64: ${{ secrets.GSHEETS_KEY_B64 }}
 
       - name: 🧠 Processar prompts com IA
         run: python processar_prompts.py
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+          GSHEETS_KEY_B64: ${{ secrets.GSHEETS_KEY_B64 }}
