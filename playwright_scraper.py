@@ -27,7 +27,6 @@ creds = ServiceAccountCredentials.from_json_keyfile_name("credenciais.json", sco
 client = gspread.authorize(creds)
 sheet = client.open("HubspotIA").sheet1
 
-# Função para verificar se o artigo já está na planilha
 def artigo_ja_existe(titulo, dados_existentes):
     for row in dados_existentes:
         if row["Título"].strip().lower() == titulo.strip().lower():
@@ -41,38 +40,27 @@ with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     page = browser.new_page()
     page.goto("https://br.hubspot.com/blog")
-    page.wait_for_selector("article, h3, .blog-post-card")
+    page.wait_for_selector(".blog-post-card", timeout=20000)
 
-    # Coletar múltiplas seções de artigos
-    blocos = page.query_selector_all("article, .blog-post-card, section h3, div h3")
+    artigos = page.query_selector_all(".blog-post-card")
 
-    for bloco in blocos:
+    for artigo in artigos:
         try:
-            titulo = bloco.inner_text().strip()
-        except:
-            continue
-        if not titulo:
-            continue
-
-        if re.search(r"\b(IA|inteligência artificial|AI|machine learning|LLM)\b", titulo, re.IGNORECASE):
-            link_tag = bloco.query_selector("a")
-            link = link_tag.get_attribute("href") if link_tag else ""
+            h3 = artigo.query_selector("h3.blog-post-card-title a")
+            if not h3:
+                continue
+            titulo = h3.inner_text().strip()
+            link = h3.get_attribute("href")
             link = link if link.startswith("http") else "https://br.hubspot.com" + link
 
-            resumo = ""
-            parent = bloco.evaluate_handle("node => node.parentElement")
-            if parent:
-                try:
-                    p_tag = parent.query_selector("p")
-                    resumo = p_tag.inner_text().strip() if p_tag else ""
-                except:
-                    resumo = ""
-
-            if not artigo_ja_existe(titulo, dados_existentes):
-                data = datetime.now().strftime("%Y-%m-%d")
-                sheet.append_row([data, titulo, link, resumo, ""])
-                print(f"✅ Adicionado: {titulo}")
-                adicionados += 1
+            if re.search(r"\b(IA|inteligência artificial|AI|machine learning|LLM)\b", titulo, re.IGNORECASE):
+                if not artigo_ja_existe(titulo, dados_existentes):
+                    data = datetime.now().strftime("%Y-%m-%d")
+                    sheet.append_row([data, titulo, link, "", ""])
+                    print(f"✅ Adicionado: {titulo}")
+                    adicionados += 1
+        except Exception as e:
+            print(f"⚠️ Erro ao processar artigo: {e}")
 
     browser.close()
 
