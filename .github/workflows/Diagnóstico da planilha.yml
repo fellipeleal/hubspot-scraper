@@ -21,4 +21,4 @@ jobs:
         run: echo "${{ secrets.GSHEETS_KEY_B64 }}" | base64 -d > credenciais.json
 
       - name: Rodar diagnóstico
-        run: python diagnostico_planilha.py
+        run: python processar_prompts_debug.py
