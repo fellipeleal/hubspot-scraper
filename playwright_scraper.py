@@ -55,13 +55,32 @@ with sync_playwright() as p:
 
             if re.search(r"\b(IA|inteligência artificial|AI|machine learning|LLM)\b", titulo, re.IGNORECASE):
                 if not artigo_ja_existe(titulo, dados_existentes):
-                    data = datetime.now().strftime("%Y-%m-%d")
-                    sheet.append_row([data, titulo, link, "", ""])
-                    print(f"✅ Adicionado: {titulo}")
+                    print(f"🌐 Visitando artigo: {titulo}")
+                    artigo_page = browser.new_page()
+                    artigo_page.goto(link)
+                    artigo_page.wait_for_timeout(3000)
+
+                    paragrafos = artigo_page.query_selector_all("article p, .post-body p, main p")
+                    texto_completo = ""
+                    count = 0
+                    for ptag in paragrafos:
+                        try:
+                            texto_completo += ptag.inner_text().strip() + " "
+                            count += 1
+                        except:
+                            continue
+                        if count >= 6:
+                            break
+                    artigo_page.close()
+
+                    resumo = texto_completo.strip()
+                    data_coleta = datetime.now().strftime("%Y-%m-%d")
+                    sheet.append_row([data_coleta, titulo, link, resumo, ""])
+                    print(f"✅ Adicionado com resumo: {titulo}")
                     adicionados += 1
         except Exception as e:
             print(f"⚠️ Erro ao processar artigo: {e}")
 
     browser.close()
 
-print(f"📌 Total de artigos adicionados: {adicionados}")
+print(f"📌 Total de artigos adicionados com resumo: {adicionados}")
