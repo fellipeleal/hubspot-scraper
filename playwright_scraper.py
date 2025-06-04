@@ -1,25 +1,20 @@
-from playwright.sync_api import sync_playwright
-import re
-from datetime import datetime
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 import os
 import json
+from datetime import datetime
+import re
+from playwright.sync_api import sync_playwright
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
-# Criar o arquivo credenciais.json dinamicamente a partir do secret
+# Criar credenciais.json a partir do secret
 if not os.path.exists("credenciais.json"):
     with open("credenciais.json", "w") as f:
         f.write(os.getenv("GOOGLE_CREDENTIALS"))
 
-# Segue a autenticação normal
-from oauth2client.service_account import ServiceAccountCredentials
-import gspread
-
+# Autenticar com Google Sheets
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds = ServiceAccountCredentials.from_json_keyfile_name("credenciais.json", scope)
 client = gspread.authorize(creds)
-
-# Acessar planilha
 sheet = client.open("HubspotIA").sheet1
 
 adicionados = 0
@@ -36,28 +31,16 @@ with sync_playwright() as p:
         if not title_tag:
             continue
         titulo = title_tag.inner_text().strip()
-        print("🔎 Título encontrado:", titulo)
-
         if re.search(r"\b(IA|inteligência artificial|AI|machine learning|LLM)\b", titulo, re.IGNORECASE):
             link_tag = article.query_selector("a")
             link = link_tag.get_attribute("href") if link_tag else ""
-            link = link if link.startswith("http") else "https://br.hubspot.com/blog" + link
+            link = link if link.startswith("http") else "https://br.hubspot.com" + link
 
             desc_tag = article.query_selector("p")
             resumo = desc_tag.inner_text().strip() if desc_tag else ""
-
             data = datetime.now().strftime("%Y-%m-%d")
-            prompt = f"""Crie um post de LinkedIn com base nesse artigo da HubSpot: "{titulo}".
-
-Objetivo: mostrar como profissionais de marketing podem aplicar esse conceito na prática.
-
-Use um tom claro, sem jargão técnico, com até 2 emojis. Finalize com uma pergunta ou CTA para engajar a audiência.
-
-Fonte: {link}"""
-
             sheet.append_row([data, titulo, link, resumo, ""])
             adicionados += 1
-
     browser.close()
 
 print(f"✅ {adicionados} post(s) adicionados à planilha.")
