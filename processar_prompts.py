@@ -60,6 +60,8 @@ for i, row in enumerate(dados, start=2):  # começa na linha 2
             )
 
             texto = response["choices"][0]["message"]["content"].strip()
+            print("📝 Texto gerado:")
+            print(texto)
             sheet.update_cell(i, col_prompt, texto)
             print(f"✅ Post adicionado na linha {i}.")
 
