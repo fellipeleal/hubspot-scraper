@@ -27,7 +27,7 @@ jobs:
     - name: Criar credenciais.json a partir do secret codificado
       run: echo "${{ secrets.GSHEETS_KEY_B64 }}" | base64 -d > credenciais.json
 
-    - name: Executar o script que gera os posts
+    - name: Executar o script com debug (log do conteúdo gerado)
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      run: python processar_prompts.py
+      run: python processar_prompts_debug.py
