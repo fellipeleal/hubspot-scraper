@@ -5,6 +5,7 @@ import openai
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
+# Decodificar e salvar credenciais.json
 credentials_b64 = os.getenv("GSHEETS_KEY_B64")
 if not credentials_b64:
     raise ValueError("❌ GSHEETS_KEY_B64 não está definido. Verifique os GitHub Secrets.")
@@ -18,25 +19,30 @@ except Exception as e:
 with open("credenciais.json", "w") as f:
     f.write(credentials_json)
 
+# Autenticar com Google Sheets
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds = ServiceAccountCredentials.from_json_keyfile_name("credenciais.json", scope)
 client = gspread.authorize(creds)
 sheet = client.open("HubspotIA").sheet1
 dados = sheet.get_all_records()
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# Configurar OpenAI client (nova API)
+client_oai = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+# Localizar colunas
 header = sheet.row_values(1)
 col_resumo = header.index("Resumo") + 1
 col_prompt = header.index("Prompt personalizado") + 1 if "Prompt personalizado" in header else len(header) + 1
 if "Prompt personalizado" not in header:
     sheet.update_cell(1, col_prompt, "Prompt personalizado")
 
+# Processar cada linha
 for i, row in enumerate(dados, start=2):
     resumo = row.get("Resumo", "").strip()
     prompt_personalizado = row.get("Prompt personalizado", "").strip()
     if resumo and not prompt_personalizado:
         print(f"💬 Gerando post para linha {i}...")
+
         mensagem_usuario = "\n".join([
             "Crie um post para LinkedIn com tom provocador e autoridade técnica sobre o tema.",
             "",
@@ -54,7 +60,7 @@ for i, row in enumerate(dados, start=2):
         ])
 
         try:
-            response = openai.ChatCompletion.create(
+            response = client_oai.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system", "content": "Você é um estrategista de marketing experiente e direto."},
@@ -63,7 +69,7 @@ for i, row in enumerate(dados, start=2):
                 temperature=0.7,
                 max_tokens=500
             )
-            texto = response["choices"][0]["message"]["content"].strip()
+            texto = response.choices[0].message.content.strip()
             sheet.update_cell(i, col_prompt, texto)
             print(f"✅ Post adicionado na linha {i}.")
         except Exception as e:
