@@ -3,8 +3,18 @@ import re
 from datetime import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+import os
+import json
 
-# Autenticar com Google Sheets
+# Criar o arquivo credenciais.json dinamicamente a partir do secret
+if not os.path.exists("credenciais.json"):
+    with open("credenciais.json", "w") as f:
+        f.write(os.getenv("GOOGLE_CREDENTIALS"))
+
+# Segue a autenticação normal
+from oauth2client.service_account import ServiceAccountCredentials
+import gspread
+
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds = ServiceAccountCredentials.from_json_keyfile_name("credenciais.json", scope)
 client = gspread.authorize(creds)
