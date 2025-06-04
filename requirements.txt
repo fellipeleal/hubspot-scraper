@@ -2,4 +2,4 @@ gspread
 oauth2client
 requests
 playwright
-openai
+openai>=1.0.0
