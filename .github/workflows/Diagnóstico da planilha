@@ -1,0 +1,24 @@
+name: Diagnóstico da planilha
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnostico:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependências
+        run: pip install gspread oauth2client
+
+      - name: Criar credenciais.json
+        run: echo "${{ secrets.GSHEETS_KEY_B64 }}" | base64 -d > credenciais.json
+
+      - name: Rodar diagnóstico
+        run: python diagnostico_planilha.py
