@@ -25,7 +25,7 @@ jobs:
         pip install -r requirements.txt
 
     - name: 🧠 Rodar processador de prompts
-      run: python scripts/processar_prompts.py
+      run: python processar_prompts.py
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         GSHEETS_KEY_B64: ${{ secrets.GSHEETS_KEY_B64 }}
