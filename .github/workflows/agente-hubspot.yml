@@ -31,6 +31,6 @@ jobs:
         GSHEETS_KEY_B64: ${{ secrets.GSHEETS_KEY_B64 }}
 
     - name: 🧪 Rodar diagnóstico da planilha
-      run: python scripts/diagnostico_planilha.py
+      run: python diagnostico_planilha.py
       env:
         GSHEETS_KEY_B64: ${{ secrets.GSHEETS_KEY_B64 }}
