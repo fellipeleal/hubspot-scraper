@@ -9,7 +9,7 @@ Este projeto mostra, de forma prática, como IA + automação + scraping + plani
 - Identifica artigos sobre IA
 - Lê até 6 parágrafos do conteúdo
 - Resume o texto
-- Gera um post com ChatGPT (tom técnico e provocador)
+- Gera um post com ChatGPT
 - Escreve em uma planilha do Google Sheets
 
 ## 🧠 Tecnologias usadas
