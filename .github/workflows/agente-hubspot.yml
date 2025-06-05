@@ -3,7 +3,7 @@ name: Hubspot IA Agent Full
 on:
   workflow_dispatch:
   schedule:
-    - cron: '20 8 * * *'
+    - cron: '45 8 * * *'
     - cron: '0 18 * * *'
 
 jobs:
