@@ -5,7 +5,7 @@ Este projeto mostra, de forma prática, como IA + automação + scraping + plani
 
 ## 📌 O que faz
 
-- Acessa o blog da HubSpot 2x ao dia
+- Acessa o blog da HubSpot 1x ao dia
 - Identifica artigos sobre IA
 - Lê até 6 parágrafos do conteúdo
 - Resume o texto
