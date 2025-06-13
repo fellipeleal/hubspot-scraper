@@ -49,7 +49,7 @@ python processar_prompts.py
 
 ## 📅 Execução automática com GitHub Actions
 
-O projeto roda automaticamente todos os dias às 06h e 18h UTC.  
+O projeto roda automaticamente todos os dias às 06h UTC.  
 Você também pode rodar manualmente pela aba **Actions > Run workflow**.
 
 ## 📊 Diagnóstico
