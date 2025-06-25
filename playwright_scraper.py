@@ -1,10 +1,4 @@
 # Atualização do script para coletar todos os artigos da home do blog da HubSpot relacionados à IA
-import os
-import json
-import base64
-import re
-from datetime import datetime
-from playwright.sync_api import sync_playwright
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
