@@ -20,32 +20,6 @@ Este projeto mostra, de forma prática, como IA + automação + scraping + plani
 - Google Sheets API
 - GitHub Actions
 
-## 🚀 Como rodar localmente
-
-1. Clone o repositório:
-```bash
-git clone https://github.com/seu-usuario/hubspot-scraper.git
-cd hubspot-scraper
-```
-
-2. Crie e ative um ambiente virtual:
-```bash
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-3. Crie um arquivo `.env` baseado em `.env.example`
-
-4. Rode o scraper:
-```bash
-python playwright_scraper.py
-```
-
-5. Rode o gerador de prompts:
-```bash
-python processar_prompts.py
-```
 
 ## 📅 Execução automática com GitHub Actions
 
