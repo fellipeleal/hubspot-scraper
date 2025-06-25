@@ -1,3 +1,4 @@
+# Atualização do script para coletar todos os artigos da home do blog da HubSpot relacionados à IA
 import os
 import json
 import base64
@@ -40,25 +41,27 @@ with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     page = browser.new_page()
     page.goto("https://br.hubspot.com/blog")
-    page.wait_for_selector(".blog-post-card", timeout=20000)
+    page.wait_for_selector(".blog-post-card, article", timeout=30000)
 
-    artigos = page.query_selector_all(".blog-post-card")
+    # Busca mais ampla por artigos na página
+    elementos_artigo = page.query_selector_all(".blog-post-card, article")
 
-    for artigo in artigos:
+    for artigo in elementos_artigo:
         try:
-            h3 = artigo.query_selector("h3.blog-post-card-title a")
+            h3 = artigo.query_selector("h3.blog-post-card-title a, h2 a")
             if not h3:
                 continue
             titulo = h3.inner_text().strip()
             link = h3.get_attribute("href")
             link = link if link.startswith("http") else "https://br.hubspot.com" + link
 
+            # Verifica palavras-chave tanto no título quanto no conteúdo do artigo
             if re.search(r"\b(IA|inteligência artificial|AI|machine learning|LLM)\b", titulo, re.IGNORECASE):
                 if not artigo_ja_existe(titulo, dados_existentes):
                     print(f"🌐 Visitando artigo: {titulo}")
                     artigo_page = browser.new_page()
                     artigo_page.goto(link)
-                    artigo_page.wait_for_timeout(3000)
+                    artigo_page.wait_for_timeout(5000)
 
                     paragrafos = artigo_page.query_selector_all("article p, .post-body p, main p")
                     texto_completo = ""
