@@ -1,43 +1,49 @@
-name: Hubspot IA Agent Full
+name: Hubspot IA Agent — Patched
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 06 * * *'
+    - cron: '0 06 * * *'  # 06:00 UTC (ajuste conforme necessário)
 
 jobs:
   run-all:
     runs-on: ubuntu-latest
 
     steps:
-    - name: 📥 Clonar repositório
-      uses: actions/checkout@v3
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
 
-    - name: 🐍 Instalar Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-    - name: 📦 Instalar dependências
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+      - name: 📦 Instalar dependências Python
+        run: |
+          python -m pip install --upgrade pip
+          pip install playwright gspread oauth2client
 
-    - name: 🧩 Instalar navegadores do Playwright
-      run: playwright install
+      - name: 🧭 Instalar Playwright (com dependências do SO)
+        run: |
+          python -m playwright install --with-deps chromium
 
-    - name: 📰 Rodar o scraper da HubSpot
-      run: python playwright_scraper.py
-      env:
-        GSHEETS_KEY_B64: ${{ secrets.GSHEETS_KEY_B64 }}
+      - name: 🔐 Criar credenciais do Google (service account)
+        run: |
+          echo "${{ secrets.GSHEETS_KEY_B64 }}" > gsheets_key.b64
 
-    - name: 🧠 Rodar processador de prompts
-      run: python processar_prompts.py
-      env:
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        GSHEETS_KEY_B64: ${{ secrets.GSHEETS_KEY_B64 }}
+      - name: ▶️ Rodar scraper (robusto)
+        env:
+          GSHEETS_KEY_B64: ${{ secrets.GSHEETS_KEY_B64 }}
+          SHEET_NAME: ${{ vars.SHEET_NAME }}
+          SHEET_TAB: ${{ vars.SHEET_TAB }}
+          BLOG_URL: ${{ vars.BLOG_URL }}
+          KEYWORDS: ${{ vars.KEYWORDS }}
+        run: |
+          python playwright_scraper_patched.py
 
-    - name: 🧪 Rodar diagnóstico da planilha
-      run: python diagnostico_planilha.py
-      env:
-        GSHEETS_KEY_B64: ${{ secrets.GSHEETS_KEY_B64 }}
+      - name: ▶️ Processar prompts (se houver novos)
+        env:
+          GSHEETS_KEY_B64: ${{ secrets.GSHEETS_KEY_B64 }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python processar_prompts.py
