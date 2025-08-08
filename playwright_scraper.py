@@ -1,11 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Scraper (Playwright) — versão robusta
-- Busca keywords no título, metas e no corpo (até ~30 parágrafos + <li>)
-- Dedupe por URL (principal) e Título (secundário)
-- Seletores mais seguros e logs verbosos
-- Esperas, user-agent, retries
-- Cabeçalhos/colunas flexíveis para Google Sheets (detecta/normaliza)
+Scraper (Playwright) 
 Env vars esperadas:
   GSHEETS_KEY_B64  -> credenciais do service account (base64)
   SHEET_NAME       -> nome da planilha (ex.: "HubspotIA")
