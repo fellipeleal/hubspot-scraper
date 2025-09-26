@@ -190,4 +190,29 @@ def main():
               return m ? m.content : '';
             }""") or ""
 
-            els
+            els = p.query_selector_all("article p, article li") or p.query_selector_all("main p, main li")
+            parts = [safe_txt(e.text_content()) for e in els[:60] if safe_txt(e.text_content())]
+
+            if not (has_keywords(" ".join([title, h1, meta_desc])) or has_keywords("\n".join(parts))):
+                skipped += 1; p.close(); continue
+
+            row = {
+                "Data": extract_pub_date(p),
+                "Título": (h1 or title) or href,
+                "Link": href,
+                "Resumo": build_summary(h1 or title, meta_desc, parts),
+                "Prompt personalizado": "",
+                "Data_captura": time.strftime("%Y-%m-%d %H:%M:%S"),
+            }
+            new_rows.append(row); existing.add(nurl); accepted += 1; p.close()
+
+    if new_rows:
+        ws.append_rows([[r[c] for c in HEADER] for r in new_rows], value_input_option="RAW")
+        print(f"✅ Novos posts adicionados: {len(new_rows)}")
+    else:
+        print("ℹ️ Nenhum novo post elegível encontrado.")
+
+    print(f"📊 Aceitos: {accepted} | Ignorados: {skipped}")
+
+if __name__ == "__main__":
+    main()
