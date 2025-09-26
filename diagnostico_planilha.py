@@ -4,47 +4,50 @@ import base64
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
+# --- Credenciais via env (base64) ---
 credentials_b64 = os.getenv("GSHEETS_KEY_B64")
 if not credentials_b64:
     raise ValueError("❌ Variável 'GSHEETS_KEY_B64' não encontrada.")
 
 try:
-    credentials_json = base64.b64decode(credentials_b64).decode("utf-8")
-    json.loads(credentials_json)
+    credentials = json.loads(base64.b64decode(credentials_b64).decode("utf-8"))
 except Exception as e:
     raise ValueError(f"❌ Erro ao decodificar credenciais: {e}")
 
-with open("credenciais.json", "w") as f:
-    f.write(credentials_json)
-
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_name("credenciais.json", scope)
-client = gspread.authorize(creds)
+client = gspread.authorize(ServiceAccountCredentials.from_json_keyfile_dict(credentials, scope))
 
-sheet = client.open("HubspotIA").sheet1
-dados = sheet.get_all_records()
+# --- Planilha e aba vindas do ambiente (com defaults) ---
+sheet_name = os.getenv("SHEET_NAME", "HubspotIA")
+tab_name   = os.getenv("SHEET_TAB", "dados")
 
-header = sheet.row_values(1)
-col_resumo = header.index("Resumo") + 1 if "Resumo" in header else None
-col_prompt = header.index("Prompt personalizado") + 1 if "Prompt personalizado" in header else None
+sh = client.open(sheet_name)
+try:
+    ws = sh.worksheet(tab_name)
+except gspread.exceptions.WorksheetNotFound:
+    raise SystemExit(f"❌ Aba '{tab_name}' não encontrada na planilha '{sheet_name}'. "
+                     f"Abas disponíveis: {[w.title for w in sh.worksheets()]}")
+
+# --- Leitura de dados ---
+# get_all_records() ignora a linha de header e linhas totalmente vazias
+dados = ws.get_all_records()
+header = ws.row_values(1)
+
+# Localiza colunas por nome (tolerante a ausência)
+def col_idx(nome):
+    return header.index(nome) + 1 if nome in header else None
+
+col_resumo = col_idx("Resumo")
+col_prompt = col_idx("Prompt personalizado")
 
 total = len(dados)
-com_resumo = 0
-com_prompt = 0
-prontos_para_processar = 0
+com_resumo = sum(1 for r in dados if (r.get("Resumo") or "").strip())
+com_prompt = sum(1 for r in dados if (r.get("Prompt personalizado") or "").strip())
+prontos_para_processar = sum(1 for r in dados
+                             if (r.get("Resumo") or "").strip() and not (r.get("Prompt personalizado") or "").strip())
 
-for row in dados:
-    resumo = row.get("Resumo", "").strip()
-    prompt = row.get("Prompt personalizado", "").strip()
-
-    if resumo:
-        com_resumo += 1
-    if prompt:
-        com_prompt += 1
-    if resumo and not prompt:
-        prontos_para_processar += 1
-
-print("📊 Diagnóstico da planilha HubspotIA")
+print("📊 Diagnóstico da planilha", sheet_name)
+print(f"🗂️ Aba analisada: {ws.title}")
 print(f"Total de linhas (exceto cabeçalho): {total}")
 print(f"Linhas com resumo preenchido: {com_resumo}")
 print(f"Linhas com prompt já preenchido: {com_prompt}")
