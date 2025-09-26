@@ -9,16 +9,17 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Setup Python
+      - name: 🐍 Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      - name: Instalar dependências
+      - name: 📦 Instalar dependências
         run: pip install gspread oauth2client
 
-      - name: Criar credenciais.json
-        run: echo "${{ secrets.GSHEETS_KEY_B64 }}" | base64 -d > credenciais.json
-
-      - name: Rodar diagnóstico
-        run: python processar_prompts.py
+      - name: ▶️ Rodar diagnóstico
+        env:
+          GSHEETS_KEY_B64: ${{ secrets.GSHEETS_KEY_B64 }}
+          SHEET_NAME: HubspotIA
+          SHEET_TAB: dados
+        run: python diagnostico_planilha.py
