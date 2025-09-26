@@ -1,282 +1,193 @@
 # -*- coding: utf-8 -*-
 """
-Scraper (Playwright) 
-Env vars esperadas:
-  GSHEETS_KEY_B64  -> credenciais do service account (base64)
-  SHEET_NAME       -> nome da planilha (ex.: "HubspotIA")
-  SHEET_TAB        -> aba/worksheet (ex.: "dados")
-  BLOG_URL         -> URL de listagem (ex.: "https://blog.hubspot.com/marketing")
-  KEYWORDS         -> opcional, separadas por vírgula (default embutido)
-"""
-import os
-import re
-import time
-import json
-import base64
-from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
-from contextlib import contextmanager
-from typing import List, Dict, Tuple, Set
+Scraper HubSpot (Playwright) — compacto e otimizado
 
-from playwright.sync_api import sync_playwright, TimeoutError as PWTimeoutError
+Cabeçalho fixo na aba: Data | Título | Link | Resumo | Prompt personalizado | Data_captura
+
+Env obrigatórios:
+  GSHEETS_KEY_B64
+  SHEET_NAME=HubspotIA
+  SHEET_TAB=dados
+  BLOG_URL=https://blog.hubspot.com/marketing
+
+Env opcionais:
+  KEYWORDS=IA,inteligência artificial,AI,machine learning,LLM,GenAI
+  MAX_LINKS=20
+"""
+import os, re, time, json, base64
+from datetime import datetime
+from contextlib import contextmanager
+from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
+
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+from playwright.sync_api import sync_playwright, TimeoutError as PWTimeoutError
 
-# -------- Config --------
-DEFAULT_KEYWORDS = [
+# ---------- Config ----------
+HEADER = ["Data", "Título", "Link", "Resumo", "Prompt personalizado", "Data_captura"]
+DEFAULT_KW = [
     "IA", "inteligência artificial", "inteligencia artificial",
-    "AI", "A.I.", "machine learning", "aprendizado de máquina",
-    "aprendizagem automática", "LLM", "GenAI", "modelos de linguagem",
-    "large language model", "modelo de linguagem"
+    "AI", "A.I.", "machine learning", "LLM", "GenAI",
+    "modelos de linguagem", "large language model",
+    "aprendizado de máquina", "aprendizagem automática",
 ]
-
-KW_ENV = os.getenv("KEYWORDS")
-PALAVRAS_CHAVE = [k.strip() for k in KW_ENV.split(",")] if KW_ENV else DEFAULT_KEYWORDS
-
+PALAVRAS_CHAVE = [s.strip() for s in os.getenv("KEYWORDS", ",".join(DEFAULT_KW)).split(",") if s.strip()]
+MAX_LINKS = int(os.getenv("MAX_LINKS", "20"))
 UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
-
-# regex: variantes e tolerância a pontuação colada (ex.: IA:)
 KW_REGEX = re.compile(
-    r"(\\bI\\.?A\\b|\\bA\\.?I\\.?\\b|\\bAI\\b|intelig[eê]ncia\\s+artificial|machine\\s+learning|\\bLLM\\b|GenAI|modelos?\\s+de\\s+linguagem|large\\s+language\\s+model|aprendiza[gd]o\\s+de\\s+m[áa]quina|aprendizagem\\s+autom[áa]tica)",
-    re.IGNORECASE
+    r"(\bI\.?A\b|\bA\.?I\.?\b|\bAI\b|intelig[eê]ncia\s+artificial|machine\s+learning|\bLLM\b|GenAI|modelos?\s+de\s+linguagem|large\s+language\s+model|aprendiza[gd]o\s+de\s+m[áa]quina|aprendizagem\s+autom[áa]tica)",
+    re.IGNORECASE,
 )
 
-# -------- Helpers --------
-def decode_gsheets_key() -> Dict:
+# ---------- Sheets ----------
+def _creds_from_env() -> dict:
     b64 = os.getenv("GSHEETS_KEY_B64")
     if not b64:
         raise RuntimeError("GSHEETS_KEY_B64 não definido")
     return json.loads(base64.b64decode(b64).decode("utf-8"))
 
-def open_sheet():
-    creds = decode_gsheets_key()
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    client = gspread.authorize(ServiceAccountCredentials.from_json_keyfile_dict(creds, scope))
-    sheet_name = os.getenv("SHEET_NAME", "HubspotIA")
-    tab_name = os.getenv("SHEET_TAB", "dados")
-    sh = client.open(sheet_name)
-    ws = sh.worksheet(tab_name)
+def open_ws():
+    client = gspread.authorize(ServiceAccountCredentials.from_json_keyfile_dict(
+        _creds_from_env(), ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+    ))
+    sh = client.open(os.getenv("SHEET_NAME", "HubspotIA"))
+    tab = os.getenv("SHEET_TAB", "dados")
+    try:
+        ws = sh.worksheet(tab)
+    except gspread.exceptions.WorksheetNotFound:
+        ws = sh.add_worksheet(title=tab, rows=2000, cols=len(HEADER))
+    # garante cabeçalho
+    if ws.row_values(1) != HEADER:
+        ws.update([HEADER], "1:1")
     return ws
 
+def load_existing_urls(ws):
+    vals = ws.get_all_values()
+    if not vals or len(vals) < 2: return set()
+    try:
+        li = vals[0].index("Link")
+    except ValueError:
+        return set()
+    return {normalize_url(r[li]) for r in vals[1:] if len(r) > li and r[li].strip()}
+
+# ---------- Utils ----------
 def normalize_url(u: str) -> str:
     try:
-        parsed = urlparse(u)
-        # remove tracking params
-        qs = [(k, v) for k, v in parse_qsl(parsed.query) if not k.lower().startswith(("utm_", "hss_", "hs_"))]
-        new_query = urlencode(qs)
-        clean = parsed._replace(query=new_query, fragment="")
-        return urlunparse(clean).rstrip("/").lower()
+        pu = urlparse(u)
+        qs = [(k, v) for k, v in parse_qsl(pu.query) if not k.lower().startswith(("utm_", "hss_", "hs_"))]
+        return urlunparse(pu._replace(query=urlencode(qs), fragment="")).rstrip("/").lower()
     except Exception:
-        return u.strip().rstrip("/").lower()
+        return (u or "").strip().rstrip("/").lower()
 
-def get_headers(ws) -> Tuple[Dict[str, int], List[str]]:
-    """Retorna mapeamento 'header_normalizado' -> índice (1-based) e a linha de cabeçalho original."""
-    header = ws.row_values(1) or []
-    norm = {}
-    for idx, name in enumerate(header, start=1):
-        key = name.strip().lower()
-        key = key.replace("á", "a").replace("ã", "a").replace("â", "a").replace("é","e").replace("ê","e")
-        key = key.replace("í","i").replace("ó","o").replace("ô","o").replace("ú","u").replace("ç","c")
-        norm[key] = idx
-    return norm, header
+def has_keywords(text: str) -> bool:
+    if not text: return False
+    return bool(KW_REGEX.search(text) or any(k.casefold() in text.casefold() for k in PALAVRAS_CHAVE))
 
-def ensure_columns(ws, header_map, header_row):
-    wanted = ["titulo", "link", "data_captura", "resumo", "prompt personalizado"]
-    added = False
-    for col in wanted:
-        if not any(col in k for k in header_map.keys()):
-            header_row.append(col.capitalize() if col != "prompt personalizado" else "Prompt personalizado")
-            added = True
-    if added:
-        ws.update("1:1", [header_row])
-        return get_headers(ws)
-    return header_map, header_row
+def safe_txt(x): return (x or "").strip()
 
-def load_existing(ws, header_map) -> Tuple[Set[str], Set[str]]:
-    # Identify columns
-    url_col = None
-    title_col = None
-    for k, idx in header_map.items():
-        if "link" in k or k == "url":
-            url_col = idx
-        if "titulo" in k or "título" in k:
-            title_col = idx
-    urls = set()
-    titles = set()
-    if url_col or title_col:
-        values = ws.get_all_values()
-        for r in values[1:]:
-            if url_col and len(r) >= url_col and r[url_col-1].strip():
-                urls.add(normalize_url(r[url_col-1]))
-            if title_col and len(r) >= title_col and r[title_col-1].strip():
-                titles.add(r[title_col-1].strip().lower())
-    return urls, titles
-
-def extract_links_from_listing(page) -> List[str]:
-    # Busca links “de post” comuns em listagens de blog
-    selectors = [
-        "a[href*='/blog/']",
-        "article a[href]",
-        ".blog-post-card a[href]",
-        "h2 a[href], h3 a[href]",
-    ]
-    hrefs = set()
-    for sel in selectors:
-        for a in page.query_selector_all(sel):
-            href = a.get_attribute("href") or ""
-            if href.startswith("#"):
-                continue
-            if href.startswith("/"):
-                origin = page.evaluate("() => location.origin")
-                href = origin + href
-            if "hubspot" in href:  # heurística simples para o domínio
-                hrefs.add(href)
-    return list(hrefs)
-
-def text_contains_keywords(text: str) -> bool:
-    if not text:
-        return False
-    if KW_REGEX.search(text):
-        return True
-    # fallback: procura cada palavra-chave individual (casefold)
-    t = text.casefold()
-    return any(k.casefold() in t for k in PALAVRAS_CHAVE)
-
-@contextmanager
-def browser_context(pw):
-    browser = pw.chromium.launch(headless=True, args=["--disable-dev-shm-usage", "--no-sandbox"])
-    context = browser.new_context(user_agent=UA, ignore_https_errors=True, viewport={"width":1366, "height":768})
+def extract_pub_date(p) -> str:
+    # meta
     try:
-        yield context
-    finally:
-        context.close()
-        browser.close()
+        meta = p.evaluate("""() => {
+          const g=s=>document.querySelector(s)?.getAttribute('content')||'';
+          return {
+            a:g('meta[property="article:published_time"]')||g('meta[name="article:published_time"]'),
+            b:g('meta[property="og:pubdate"]')||g('meta[name="pubdate"]')||g('meta[name="publish-date"]'),
+            c:g('meta[name="date"]')||g('meta[itemprop="datePublished"]')
+          };
+        }""") or {}
+        for v in (meta.get("a"), meta.get("b"), meta.get("c")):
+            if v:
+                try: return datetime.fromisoformat(v.replace("Z","+00:00")).date().isoformat()
+                except Exception: pass
+    except Exception: pass
+    # <time>
+    dt = p.get_attribute("time[datetime]", "datetime")
+    if dt:
+        try: return datetime.fromisoformat(dt.replace("Z","+00:00")).date().isoformat()
+        except Exception: pass
+    # JSON-LD
+    try:
+        for s in p.query_selector_all('script[type="application/ld+json"]') or []:
+            t = safe_txt(s.text_content()); 
+            if not t: continue
+            data = json.loads(t); objs = [data] if isinstance(data, dict) else (data if isinstance(data, list) else [])
+            for o in objs:
+                if isinstance(o, dict) and o.get("@type") in ("Article","NewsArticle","BlogPosting"):
+                    iso = o.get("datePublished") or o.get("dateCreated")
+                    if iso:
+                        return datetime.fromisoformat(iso.replace("Z","+00:00")).date().isoformat()
+    except Exception: pass
+    return datetime.utcnow().date().isoformat()
 
+def build_summary(title, meta_desc, parts, max_chars=600):
+    if safe_txt(meta_desc): return meta_desc.strip()[:max_chars]
+    txt = " ".join([t for t in parts[:8] if safe_txt(t)]).strip() or safe_txt(title)
+    return (txt[:max_chars-3] + "...") if len(txt) > max_chars else txt
+
+# ---------- Playwright ----------
+@contextmanager
+def pw_context(pw):
+    browser = pw.chromium.launch(headless=True, args=["--disable-dev-shm-usage", "--no-sandbox"])
+    ctx = browser.new_context(user_agent=UA, ignore_https_errors=True, viewport={"width":1366, "height":768})
+    # abortar mídia para acelerar
+    ctx.route("**/*", lambda r, req: r.abort() if req.resource_type in {"image","media","font","stylesheet"} else r.continue_())
+    try: yield ctx
+    finally:
+        ctx.close(); browser.close()
+
+def listing_links(page):
+    sels = ["a[href*='/blog/']", "article a[href]", ".blog-post-card a[href]", "h2 a[href], h3 a[href]"]
+    seen, links = set(), []
+    for s in sels:
+        for a in page.query_selector_all(s):
+            href = a.get_attribute("href") or ""
+            if not href or href.startswith("#"): continue
+            if href.startswith("/"): href = page.evaluate("() => location.origin") + href
+            if "hubspot" not in href: continue
+            n = normalize_url(href)
+            if n in seen: continue
+            seen.add(n); links.append(href)
+    return links
+
+# ---------- Main ----------
 def main():
     blog_url = os.getenv("BLOG_URL")
-    if not blog_url:
-        raise RuntimeError("BLOG_URL não definido")
-    ws = open_sheet()
-    header_map, header_row = get_headers(ws)
-    header_map, header_row = ensure_columns(ws, header_map, header_row)
-    existing_urls, existing_titles = load_existing(ws, header_map)
+    if not blog_url: raise RuntimeError("BLOG_URL não definido")
 
-    print(f"🔎 Palavras-chave: {PALAVRAS_CHAVE}")
-    print(f"📄 Linhas existentes: URLs={len(existing_urls)} | Títulos={len(existing_titles)}")
+    ws = open_ws()
+    existing = load_existing_urls(ws)
+    print(f"🔎 Keywords: {PALAVRAS_CHAVE}")
+    print(f"📄 URLs já registradas: {len(existing)}")
 
-    accepted, skipped = 0, 0
+    accepted = skipped = 0
+    new_rows = []
 
-    with sync_playwright() as pw:
-        with browser_context(pw) as ctx:
-            page = ctx.new_page()
-            try:
-                page.goto(blog_url, wait_until="networkidle", timeout=45000)
+    with sync_playwright() as pw, pw_context(pw) as ctx:
+        page = ctx.new_page()
+        page.set_default_timeout(15000); page.set_default_navigation_timeout(15000)
+        try: page.goto(blog_url, wait_until="domcontentloaded", timeout=15000)
+        except PWTimeoutError: page.goto(blog_url, wait_until="domcontentloaded", timeout=10000)
+
+        links = listing_links(page)[:MAX_LINKS]
+        print(f"🧭 Links processados (cap {MAX_LINKS}): {len(links)}")
+
+        for href in links:
+            nurl = normalize_url(href)
+            if nurl in existing: skipped += 1; continue
+
+            p = ctx.new_page()
+            p.set_default_timeout(15000); p.set_default_navigation_timeout(15000)
+            try: p.goto(href, wait_until="domcontentloaded", timeout=15000)
             except PWTimeoutError:
-                page.goto(blog_url, wait_until="domcontentloaded", timeout=45000)
-                page.wait_for_timeout(2000)
+                try: p.goto(href, wait_until="domcontentloaded", timeout=8000)
+                except PWTimeoutError: skipped += 1; p.close(); continue
 
-            # tentar carregar mais itens se existir botão
-            for _ in range(3):
-                more = page.query_selector("button:has-text('Load more'), .load-more, .hs-load-more")
-                if not more:
-                    break
-                try:
-                    more.click()
-                    page.wait_for_load_state("networkidle")
-                    page.wait_for_timeout(1000)
-                except Exception:
-                    break
+            title = safe_txt(p.title()); h1 = safe_txt(p.text_content("h1"))
+            meta_desc = p.evaluate("""() => {
+              const m = document.querySelector('meta[name="description"]') ||
+                        document.querySelector('meta[property="og:description"]');
+              return m ? m.content : '';
+            }""") or ""
 
-            links = extract_links_from_listing(page)
-            print(f"🧭 Links encontrados na listagem: {len(links)}")
-
-            # Processar links
-            new_rows = []
-            for href in links:
-                url_norm = normalize_url(href)
-                if url_norm in existing_urls:
-                    skipped += 1
-                    continue
-
-                p = ctx.new_page()
-                try:
-                    p.goto(href, wait_until="networkidle", timeout=45000)
-                except PWTimeoutError:
-                    p.goto(href, wait_until="domcontentloaded", timeout=45000)
-                    p.wait_for_timeout(1500)
-
-                # Extrair título e metas
-                title = (p.title() or "").strip()
-                h1 = p.text_content("h1") or ""
-                meta_desc = p.evaluate("""() => {
-                    const m = document.querySelector('meta[name="description"]') || document.querySelector('meta[property="og:description"]');
-                    return m ? m.content : '';
-                }""") or ""
-
-                header_text = " ".join([title, h1, meta_desc])
-
-                # Corpo: pegar primeiros ~30 parágrafos e <li>
-                elements = p.query_selector_all("article p, article li") or p.query_selector_all("main p, main li")
-                body_parts = []
-                for el in elements[:60]:  # até 60 blocos p/li
-                    t = (el.text_content() or "").strip()
-                    if t:
-                        body_parts.append(t)
-                body_text = "\n".join(body_parts)
-
-                matched = text_contains_keywords(header_text) or text_contains_keywords(body_text)
-
-                if not matched:
-                    skipped += 1
-                    p.close()
-                    continue
-
-                # Preferir h1 como título
-                final_title = (h1.strip() or title).strip() or href
-                row = {
-                    "titulo": final_title,
-                    "link": href,
-                    "data_captura": time.strftime("%Y-%m-%d %H:%M:%S"),
-                    "resumo": "",
-                    "prompt personalizado": ""
-                }
-                new_rows.append(row)
-                # atualizar dedupe dinamicamente
-                existing_urls.add(url_norm)
-                existing_titles.add(final_title.lower())
-                accepted += 1
-                p.close()
-
-            if new_rows:
-                # Mapear colunas atuais
-                header_map, header_row = get_headers(ws)
-                col_index = {name.lower(): idx for idx, name in enumerate(header_row, start=1)}
-                def col(name):
-                    # busca por aproximação
-                    name_l = name.lower()
-                    for k, idx in col_index.items():
-                        if name_l in k:
-                            return idx
-                    # fallback: append
-                    header_row.append(name)
-                    ws.update("1:1", [header_row])
-                    return len(header_row)
-
-                rows_to_append = []
-                for r in new_rows:
-                    line = [""] * len(header_row)
-                    line[col("Título")-1] = r["titulo"]
-                    line[col("Link")-1] = r["link"]
-                    line[col("Data_captura")-1] = r["data_captura"]
-                    line[col("Resumo")-1] = r["resumo"]
-                    line[col("Prompt personalizado")-1] = r["prompt personalizado"]
-                    rows_to_append.append(line)
-
-                ws.append_rows(rows_to_append, value_input_option="RAW")
-                print(f"✅ Novos posts adicionados: {len(rows_to_append)}")
-            else:
-                print("ℹ️ Nenhum novo post elegível encontrado.")
-
-    print(f"📊 Aceitos: {accepted} | Ignorados: {skipped}")
-
-if __name__ == "__main__":
-    main()
+            els
