@@ -21,8 +21,10 @@ jobs:
     - name: 📦 Instalar dependências
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install playwright gspread oauth2client
+        # se já tem requirements.txt, mantém; senão ignora o erro
+        pip install -r requirements.txt || true
+        # pacotes necessários
+        pip install playwright gspread oauth2client openai
         python -m playwright install --with-deps chromium
 
     - name: 📰 Rodar o scraper da HubSpot (versão robusta)
@@ -33,14 +35,20 @@ jobs:
         BLOG_URL: https://blog.hubspot.com/marketing
         KEYWORDS: IA,inteligência artificial,AI,machine learning,LLM,GenAI
       run: python playwright_scraper.py
+      # se o arquivo no repo for "playwright_scraper_patched.py", troque para:
+      # run: python playwright_scraper_patched.py
 
     - name: 🧠 Rodar processador de prompts
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         GSHEETS_KEY_B64: ${{ secrets.GSHEETS_KEY_B64 }}
+        SHEET_NAME: HubspotIA
+        SHEET_TAB: dados
       run: python processar_prompts.py
 
     - name: 🧪 Rodar diagnóstico da planilha
       env:
         GSHEETS_KEY_B64: ${{ secrets.GSHEETS_KEY_B64 }}
+        SHEET_NAME: HubspotIA
+        SHEET_TAB: dados
       run: python diagnostico_planilha.py
